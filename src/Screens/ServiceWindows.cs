@@ -43,12 +43,8 @@ namespace WrathAccess.Screens
         /// <summary>The shared character-picker Tab stop for inventory, character sheet, and spellbook.</summary>
         public static void EmitCharacterSwitcher(GraphBuilder b, string keyPrefix)
         {
-            var game = Game.Instance;
-            var player = game?.Player;
-            // The game adds remote companions and pets to its selection group in capital service windows.
-            var characters = player?.CapitalPartyMode == true
-                ? game.SelectionCharacter?.ActualGroup
-                : player?.Party;
+            // The game's service-window roster includes eligible pets and expands to remote companions in capitals.
+            var characters = Game.Instance?.SelectionCharacter?.ActualGroup;
             if (characters == null || characters.Count == 0) return;
             b.BeginStop("chars").PushContext(Loc.T("label.characters"), "list");
             int ci = 0;
