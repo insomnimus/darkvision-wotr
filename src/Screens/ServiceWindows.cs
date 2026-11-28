@@ -24,11 +24,8 @@ namespace WrathAccess.Screens
             }
         }
 
-        /// <summary>The shared character-switcher Tab-stop (inventory / char sheet / spellbook lead
-        /// with it): the party as buttons driving the game's real selection, the current character
-        /// carrying a live "selected" part (it also announces when a switch lands elsewhere).</summary>
-        /// <summary>Ctrl+1..6 inside a player window: show that party member, exactly as picking them in
-        /// the window's character list does (same party order as the in-area Ctrl+N keys).</summary>
+        /// <summary>Ctrl+1..6 inside a player window: show a traveling party member in the same
+        /// order as the in-area Ctrl+N keys.</summary>
         public static void ShowMember(int index)
         {
             if (!ScreenManager.IsPlayerWindow(ScreenManager.Current)) return;
@@ -43,13 +40,19 @@ namespace WrathAccess.Screens
             Tts.Speak(Loc.T("party.member_selected", new { name = unit.CharacterName }), interrupt: true);
         }
 
+        /// <summary>The shared character-picker Tab stop for inventory, character sheet, and spellbook.</summary>
         public static void EmitCharacterSwitcher(GraphBuilder b, string keyPrefix)
         {
-            var party = Game.Instance?.Player?.Party;
-            if (party == null || party.Count == 0) return;
+            var game = Game.Instance;
+            var player = game?.Player;
+            // The game adds remote companions and pets to its selection group in capital service windows.
+            var characters = player?.CapitalPartyMode == true
+                ? game.SelectionCharacter?.ActualGroup
+                : player?.Party;
+            if (characters == null || characters.Count == 0) return;
             b.BeginStop("chars").PushContext(Loc.T("label.characters"), "list");
             int ci = 0;
-            foreach (var u in party)
+            foreach (var u in characters)
             {
                 var un = u;
                 var vt = GraphNodes.Button(() => un.CharacterName,
