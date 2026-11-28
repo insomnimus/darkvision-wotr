@@ -22,32 +22,38 @@ namespace WrathAccess.Screens
         private readonly int _current;
         private readonly Action<int> _onSelect;
         private readonly Action<int> _tooltip; // optional: Space/F1 on option i (owns the whole behavior)
+        private readonly bool _searchByNumber;
 
         public ChoiceSubmenuScreen(string title, List<string> options, int current, Action<int> onSelect,
-            Action<int> tooltip = null)
+            Action<int> tooltip = null, bool searchByNumber = false)
         {
             _title = title;
             _options = options;
             _current = current;
             _onSelect = onSelect;
             _tooltip = tooltip;
+            _searchByNumber = searchByNumber;
             Wrap = true;
         }
 
         /// <summary>Open the submenu as a child of the current screen. <paramref name="tooltip"/>, when
-        /// given, is the option's Space/F1 (e.g. an action bar flyout entry's game tooltip).</summary>
+        /// given, is the option's Space/F1 (e.g. an action bar flyout entry's game tooltip).
+        /// Supply a parent to replace that screen's current child with the new list.</summary>
         public static void Open(string title, List<string> options, int current, Action<int> onSelect,
-            Action<int> tooltip = null)
+            Action<int> tooltip = null, Screen parent = null, bool searchByNumber = false)
         {
             // Opening IS the activation — the click every caller (dropdowns, sorters, link pickers)
             // used to get from the old proxy base's default activation sound. One chokepoint here.
             UiSound.Play(Kingmaker.UI.UISoundType.ButtonClick);
-            ScreenManager.Current?.PushChild(new ChoiceSubmenuScreen(title, options, current, onSelect, tooltip));
+            (parent ?? ScreenManager.Current)?.PushChild(
+                new ChoiceSubmenuScreen(title, options, current, onSelect, tooltip, searchByNumber));
         }
 
         public override string Key => "overlay.choicesubmenu";
         public override string ScreenName => _title;
         public override bool IsActive() => false; // never poll-pushed — only ever a child screen
+        public override bool AllowsNumericTypeahead => _searchByNumber;
+        public override bool Exclusive => _searchByNumber; // digits and letters must stay in the picker
 
         public override IEnumerable<ElementAction> GetActions()
         {

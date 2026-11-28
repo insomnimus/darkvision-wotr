@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Kingmaker.PubSubSystem;
 using Kingmaker.UI.MVVM._VM.ActionBar;
 using Kingmaker.UI.UnitSettings; // MechanicActionBarSlot + subtypes
 using WrathAccess.UI.Graph;
@@ -18,7 +19,7 @@ namespace WrathAccess.UI
     /// </summary>
     internal static class ActionBarNodes
     {
-        public static NodeVtable Slot(ActionBarSlotVM vm)
+        public static NodeVtable Slot(ActionBarVM bar, ActionBarSlotVM vm)
         {
             Func<MechanicActionBarSlot> slot = () => vm?.MechanicActionBarSlot;
             Func<bool> enabled = () => slot()?.IsPossibleActive() ?? false;
@@ -46,7 +47,7 @@ namespace WrathAccess.UI
                 },
                 SearchText = () => slot()?.GetTitle() ?? "",
                 OnActivate = () => Activate(vm),
-                OnSecondary = () => OpenSlotMenu(vm),
+                OnSecondary = () => OpenSlotMenu(bar, vm),
                 OnDrag = () => ActionBarDrag.OnSlot(vm), // Backslash: pick up / place (the mouse drag)
                 OnDelete = () => ActionBarDrag.ClearSlot(vm), // Delete: the mouse "drop it off the bar"
                 OnTooltip = () =>
@@ -123,9 +124,9 @@ namespace WrathAccess.UI
         // Backspace = the slot's MENU: everything the sighted slot offers beyond its main click, in one
         // list. First the convert flyout's entries (the little arrow on the slot — variants, a cleric's
         // spontaneous Cure spells, toggle sets), reachable here whether or not the slot is castable
-        // (the main click only opens the flyout once the slot is spent); last, the plain right-click's
-        // set/clear default attack, when this ability can be one. Nothing to offer → say so.
-        private static void OpenSlotMenu(ActionBarSlotVM vm)
+        // (the main click only opens the flyout once the slot is spent); then set/clear default
+        // attack when available and add to hotbar for slots the game can persist.
+        private static void OpenSlotMenu(ActionBarVM bar, ActionBarSlotVM vm)
         {
             var s = vm?.MechanicActionBarSlot;
             if (s == null) return;
@@ -137,10 +138,24 @@ namespace WrathAccess.UI
             try { autoUse = s.IsAutoUse; } catch { }
             if (autoUse)
                 labels.Add(Loc.T(IsDefaultAttack(s) ? "actionbar.clear_default_attack" : "actionbar.set_default_attack"));
+            var unit = bar.SelectedUnit.Value;
+            int hotbarOption = -1;
+            if (unit != null && bar.Slots.Count > 0 && !vm.IsRuntimeOnly.Value)
+            {
+                hotbarOption = labels.Count;
+                labels.Add(Loc.T("actionbar.add_to_hotbar"));
+            }
             if (labels.Count == 0) { Tts.Speak(Loc.T("actionbar.no_options"), interrupt: true); return; }
             Screens.ChoiceSubmenuScreen.Open(s.GetTitle(), labels, -1, i => // -1: actions, none "selected"
             {
                 if (i < subs.Count) Exploration.AbilityTargeting.PickConversion(subs[i]);
+                else if (i == hotbarOption)
+                {
+                    if (bar.SelectedUnit.Value == unit && ReferenceEquals(vm.MechanicActionBarSlot, s))
+                        OpenHotbarMenu(bar, vm);
+                    else
+                        Tts.Speak(Loc.T("actionbar.cant_assign_slot"), interrupt: true);
+                }
                 else ToggleAutoUse(vm);
             },
             // Space on a flyout entry = its game tooltip (the sighted flyout hovers them); the
@@ -148,8 +163,42 @@ namespace WrathAccess.UI
             i =>
             {
                 if (i < subs.Count) Exploration.AbilityTargeting.OpenSlotTooltip(subs[i]);
-                else Tts.Speak(Loc.T("actionbar.default_attack_help"), interrupt: true);
+                else if (i != hotbarOption) Tts.Speak(Loc.T("actionbar.default_attack_help"), interrupt: true);
             });
+        }
+
+        private static void OpenHotbarMenu(ActionBarVM bar, ActionBarSlotVM source)
+        {
+            var unit = bar.SelectedUnit.Value;
+            var slot = source.MechanicActionBarSlot;
+            var labels = new List<string>(bar.Slots.Count);
+            foreach (var target in bar.Slots)
+            {
+                var entry = target.MechanicActionBarSlot;
+                int number = target.Index + 1;
+                labels.Add(entry == null || entry is MechanicActionBarSlotEmpty
+                    ? Loc.T("actionbar.hotbar_slot_empty", new { slot = number })
+                    : Loc.T("actionbar.hotbar_slot_occupied", new { name = entry.GetTitle(), slot = number }));
+            }
+
+            Screens.ChoiceSubmenuScreen.Open(Loc.T("actionbar.add_to_hotbar"), labels, -1, index =>
+            {
+                if (bar.SelectedUnit.Value != unit || !ReferenceEquals(source.MechanicActionBarSlot, slot)
+                    || index >= bar.Slots.Count)
+                {
+                    Tts.Speak(Loc.T("actionbar.cant_assign_slot"), interrupt: true);
+                    return;
+                }
+
+                int targetIndex = bar.Slots[index].Index;
+                string name = slot.GetTitle();
+                if (source.Index != targetIndex)
+                {
+                    unit.UISettings.SetSlot(slot, targetIndex);
+                    EventBus.RaiseEvent<ISlotWasAddedHandler>(h => h.SlotWasAdded(unit));
+                }
+                Tts.Speak(Loc.T("actionbar.assigned_slot", new { name, slot = targetIndex + 1 }), interrupt: true);
+            }, parent: Screens.ScreenManager.Current?.ParentScreen, searchByNumber: true);
         }
 
         // The sighted plain right-click (ActionBarSlotPCView.OnRightClick → OnSupportClick →

@@ -90,7 +90,8 @@ namespace WrathAccess.UI
             // Repeat single-letter: typing the same letter again cycles ALL its matches in list
             // order (l -> Load Game, l -> License, l -> DLC), wrapping.
             string bufferStr = _buffer.ToString();
-            if (_isSearchActive && _resultIndices.Count > 0 && _buffer.Length > 1 && IsAllSameChar(bufferStr))
+            if (_isSearchActive && _resultIndices.Count > 0 && _buffer.Length > 1
+                && char.IsLetter(bufferStr[0]) && IsAllSameChar(bufferStr))
             {
                 _buffer.Length = 1;
                 if (announceResult != null) _announceResult = announceResult;

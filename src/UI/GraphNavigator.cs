@@ -245,6 +245,10 @@ namespace WrathAccess.UI
 
         public override bool OnInputJustPressed(InputAction action)
         {
+            if (Screen?.AllowsNumericTypeahead == true
+                && FiredFromSearchKey(action, includeDigits: true, includeNavigation: false))
+                return true; // TickTypeahead owns these keys even before the first search character
+
             if (_search.IsSearchActive)
             {
                 if (_searchFocusId != null && !_searchFocusId.Equals(_graph?.CurrentNode?.Id))
@@ -570,7 +574,7 @@ namespace WrathAccess.UI
 
             foreach (var ch in typed)
             {
-                if (char.IsLetter(ch)) TypeChar(ch);
+                if (char.IsLetter(ch) || (Screen.AllowsNumericTypeahead && char.IsDigit(ch))) TypeChar(ch);
                 else if (ch == ' ' && _search.HasBuffer) TypeChar(ch);
             }
         }
@@ -598,13 +602,16 @@ namespace WrathAccess.UI
             return true;
         }
 
-        private static bool FiredFromSearchKey(InputAction action)
+        private static bool FiredFromSearchKey(InputAction action, bool includeDigits = false, bool includeNavigation = true)
         {
             foreach (var b in action.Bindings)
             {
                 if (!(b is KeyboardBinding kb) || kb.Ctrl || kb.Alt || !kb.Held()) continue;
                 if (kb.Key >= UnityEngine.KeyCode.A && kb.Key <= UnityEngine.KeyCode.Z) return true;
-                if (!kb.Shift && (kb.Key == UnityEngine.KeyCode.Space
+                if (includeDigits && !kb.Shift
+                    && ((kb.Key >= UnityEngine.KeyCode.Alpha0 && kb.Key <= UnityEngine.KeyCode.Alpha9)
+                        || (kb.Key >= UnityEngine.KeyCode.Keypad0 && kb.Key <= UnityEngine.KeyCode.Keypad9))) return true;
+                if (includeNavigation && !kb.Shift && (kb.Key == UnityEngine.KeyCode.Space
                     || kb.Key == UnityEngine.KeyCode.UpArrow || kb.Key == UnityEngine.KeyCode.DownArrow
                     || kb.Key == UnityEngine.KeyCode.Escape)) return true;
             }

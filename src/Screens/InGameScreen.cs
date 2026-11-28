@@ -163,7 +163,7 @@ namespace WrathAccess.Screens
                 foreach (var slot in vm.Slots)
                 {
                     if (!Usable(slot)) { i++; continue; }
-                    b.AddItem(ControlId.Referenced(slot, "bar:main:" + i), ActionBarNodes.Slot(slot));
+                    b.AddItem(ControlId.Referenced(slot, "bar:main:" + i), ActionBarNodes.Slot(vm, slot));
                     i++; usable++;
                 }
             if (usable == 0 && !ActionBarDrag.Holding)
@@ -176,16 +176,19 @@ namespace WrathAccess.Screens
                 if (empty >= 0) b.AddItem(ControlId.Structural("bar:empty"), ActionBarNodes.EmptySlot(empty));
             }
 
-            AddGroup(b, vm?.GroupAbilities, "hud.abilities");
-            AddGroup(b, vm?.GroupSpells, "hud.spells");
-            AddGroup(b, vm?.GroupItems, "hud.items");
+            if (vm != null)
+            {
+                AddGroup(b, vm, vm.GroupAbilities, "hud.abilities");
+                AddGroup(b, vm, vm.GroupSpells, "hud.spells");
+                AddGroup(b, vm, vm.GroupItems, "hud.items");
+            }
             b.PopContext();
         }
 
         // One collapsible group (Abilities / Spells / Items): the group's usable slots under a folding
         // header (persistent expansion; collapsed by default like the game's fold-outs). Its own region,
         // so Ctrl+arrows jump between the bar's sections.
-        private static void AddGroup(GraphBuilder b, List<ActionBarSlotVM> slots, string labelKey)
+        private static void AddGroup(GraphBuilder b, ActionBarVM bar, List<ActionBarSlotVM> slots, string labelKey)
         {
             if (slots == null) return;
             bool any = false;
@@ -198,7 +201,7 @@ namespace WrathAccess.Screens
             foreach (var slot in slots)
             {
                 if (!Usable(slot)) { i++; continue; }
-                b.AddItem(ControlId.Referenced(slot, "bar:" + labelKey + ":" + i), ActionBarNodes.Slot(slot));
+                b.AddItem(ControlId.Referenced(slot, "bar:" + labelKey + ":" + i), ActionBarNodes.Slot(bar, slot));
                 i++;
             }
             b.EndGroup();

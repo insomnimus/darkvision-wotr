@@ -78,6 +78,9 @@ namespace WrathAccess.Screens
         /// the in-game screen, where letters are exploration hotkeys (scanner, status, …).</summary>
         public virtual bool AllowsTypeahead => true;
 
+        /// <summary>Whether type-ahead also accepts digits, for lists with numbered choices.</summary>
+        public virtual bool AllowsNumericTypeahead => false;
+
         private static readonly WrathAccess.Input.InputCategory[] UiOnly = { WrathAccess.Input.InputCategory.UI };
 
         /// <summary>For SERVICE-WINDOW screens: UI plus the Windows hotkeys, so the window.* keys
